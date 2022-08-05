@@ -43,8 +43,9 @@ dircmdline=""+dir_cmdline
 repeat:if strmid(dircmdline,0,1)=" "{dircmdline=strmid(dircmdline,1,strlen(dircmdline)-1)}else{break}:loop
 dircmdline_fni=instr(dircmdline,0," ")
 baseaddr4chg=0x10000000
-dircmdline_fn=""
+dircmdline_fn=""+dircmdline
 if dircmdline_fni!-1{if strmid(dircmdline,0,2)="0x"{baseaddr4chg=int("$"+strmid(dircmdline,2,dircmdline_fni-2))}else{baseaddr4chg=int(strmid(dircmdline,0,dircmdline_fni))}:dircmdline_fn=""+strmid(dircmdline,dircmdline_fni+1,strlen(dircmdline))}
+if dircmdline=""{mes "Usage: relocpe [Base Address] [pefile's filename]\nEx:relocpe 0x100000 ia32.dll":end -1}
 exist dircmdline_fn
 strsize2=strsize
 if strsize2=-1{mes "File not found":end -1}
@@ -58,15 +59,17 @@ repeat wpeek(pefile,peheaderstart+0x06)
 if lpeek(pefile,pesectiontablechk)>pesectiontablechkmaxva{pesectiontablechkmaxva=lpeek(pefile,pesectiontablechk+12):pesectiontablechkmaxsz=lpeek(pefile,pesectiontablechk+8)}
 pesectiontablechk+=0x28
 loop
+relocloaded=0
 sdim pecontent4edit,pesectiontablechkmaxva+pesectiontablechkmaxsz+4096
 pesectiontablechk=pesectiontable
 sdim pesectiontablechkstr,64
 repeat wpeek(pefile,peheaderstart+0x06)
 memcpy pesectiontablechkstr,pefile,8,0,pesectiontablechk
-if pesectiontablechkstr=".reloc"{dupptr reloc,varptr(pecontent4edit)+lpeek(pefile,pesectiontablechk+12),lpeek(pefile,pesectiontablechk+8),2}
-memcpy pecontent4edit,pefile,lpeek(pefile,pesectiontablechk+8),lpeek(pefile,pesectiontablechk+12),lpeek(pefile,pesectiontablechk+20)
+if pesectiontablechkstr=".reloc"{dupptr reloc,varptr(pecontent4edit)+lpeek(pefile,pesectiontablechk+12),lpeek(pefile,pesectiontablechk+8+8),2:relocloaded=1}
+memcpy pecontent4edit,pefile,lpeek(pefile,pesectiontablechk+8+8),lpeek(pefile,pesectiontablechk+12),lpeek(pefile,pesectiontablechk+20)
 pesectiontablechk+=0x28
 loop
+if relocloaded=0{mes "Sorry, It's not relocatable pe file!":end -1}
 
 reloctran pecontent4edit,reloc,baseaddr4chg-pebaseaddr4noreloc
 
@@ -74,10 +77,10 @@ pesectiontablechk=pesectiontable
 repeat wpeek(pefile,peheaderstart+0x06)
 memcpy pesectiontablechkstr,pefile,8,0,pesectiontablechk
 //if pesectiontablechkstr=".reloc"{dupptr reloc,varptr(pecontent4edit)+lpeek(pefile,pesectiontablechk+12),lpeek(pefile,pesectiontablechk+8),2}
-memcpy pefile,pecontent4edit,lpeek(pefile,pesectiontablechk+8),lpeek(pefile,pesectiontablechk+20),lpeek(pefile,pesectiontablechk+12)
+memcpy pefile,pecontent4edit,lpeek(pefile,pesectiontablechk+8+8),lpeek(pefile,pesectiontablechk+20),lpeek(pefile,pesectiontablechk+12)
 pesectiontablechk+=0x28
 loop
 lpoke pefile,peheaderstart+0x34,baseaddr4chg
 mes "Relocated your pe format file!"
 bsave "relocated_"+dircmdline_fn,pefile
-end
+end 0
