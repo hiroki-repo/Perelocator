@@ -1,0 +1,83 @@
+#include "hsp3cl.as"
+#packopt name "relocpe"
+#packopt orgpath 1
+#ifndef __reloctran_mod__
+#module __reloctran_mod__
+#deffunc reloctran var prm_0,var prm_1,int prm_2
+tmp4relocptx=8
+*loop4relocate
+repeat ((lpeek(prm_1,tmp4relocptx-4)-8)/2)
+switch ((wpeek(prm_1,(2*cnt)+tmp4relocptx)>>12)&0xF)
+case 0x01
+lpoke prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)),lpeek(prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)))+((prm_2>>16)&0xFFFF)
+swbreak
+case 0x02
+lpoke prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)),lpeek(prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)))+((prm_2>>0)&0xFFFF)
+swbreak
+case 0x03
+lpoke prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)),lpeek(prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)))+prm_2
+swbreak
+case 0x07
+armlow=lpeek(prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)))
+armlow=((armlow << 1) & 0x0800) + ((armlow << 12) & 0xf000) + ((armlow >> 20) & 0x0700) + ((armlow >> 16) & 0x00ff)
+armhigh=lpeek(prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8))+4)
+armhigh=((armhigh << 1) & 0x0800) + ((armhigh << 12) & 0xf000) + ((armhigh >> 20) & 0x0700) + ((armhigh >> 16) & 0x00ff)
+armlowhigh=0:wpoke armlowhigh,0,armlow:wpoke armlowhigh,2,armhigh
+armlowhighplsdelta=armlowhigh+prm_2
+armlow=wpeek(armlowhighplsdelta,0)
+armhigh=wpeek(armlowhighplsdelta,2)
+lpoke prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)),(lpeek(prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8)))&0x8f00fbf0) + ((armlow >> 1) & 0x0400) + ((armlow >> 12) & 0x000f) + ((armlow << 20) & 0x70000000) + ((armlow << 16) & 0xff0000)
+lpoke prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8))+4,(lpeek(prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8))+4)&0x8f00fbf0) + ((armhigh >> 1) & 0x0400) + ((armhigh >> 12) & 0x000f) + ((armhigh << 20) & 0x70000000) + ((armhigh << 16) & 0xff0000)
+swbreak
+case 0x10
+lpoke prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8))+4,lpeek(prm_0,((wpeek(prm_1,(2*cnt)+tmp4relocptx)&0xFFF)+lpeek(prm_1,tmp4relocptx-8))+4)+prm_2
+swbreak
+swend
+loop
+tmp4relocptx+=lpeek(prm_1,tmp4relocptx-4)//-8
+if (lpeek(prm_1,tmp4relocptx-4)!0){goto *loop4relocate}
+return
+#global
+#endif
+dircmdline=""+dir_cmdline
+repeat:if strmid(dircmdline,0,1)=" "{dircmdline=strmid(dircmdline,1,strlen(dircmdline)-1)}else{break}:loop
+dircmdline_fni=instr(dircmdline,0," ")
+baseaddr4chg=0x10000000
+dircmdline_fn=""
+if dircmdline_fni!-1{if strmid(dircmdline,0,2)="0x"{baseaddr4chg=int("$"+strmid(dircmdline,2,dircmdline_fni-2))}else{baseaddr4chg=int(strmid(dircmdline,0,dircmdline_fni))}:dircmdline_fn=""+strmid(dircmdline,dircmdline_fni+1,strlen(dircmdline))}
+exist dircmdline_fn
+strsize2=strsize
+if strsize2=-1{mes "File not found":end -1}
+sdim pefile,strsize2
+bload dircmdline_fn,pefile
+peheaderstart=lpeek(pefile,0x3c)
+pesectiontable=peheaderstart+0xf8
+pebaseaddr4noreloc=lpeek(pefile,peheaderstart+0x34)
+pesectiontablechk=pesectiontable
+repeat wpeek(pefile,peheaderstart+0x06)
+if lpeek(pefile,pesectiontablechk)>pesectiontablechkmaxva{pesectiontablechkmaxva=lpeek(pefile,pesectiontablechk+12):pesectiontablechkmaxsz=lpeek(pefile,pesectiontablechk+8)}
+pesectiontablechk+=0x28
+loop
+sdim pecontent4edit,pesectiontablechkmaxva+pesectiontablechkmaxsz+4096
+pesectiontablechk=pesectiontable
+sdim pesectiontablechkstr,64
+repeat wpeek(pefile,peheaderstart+0x06)
+memcpy pesectiontablechkstr,pefile,8,0,pesectiontablechk
+if pesectiontablechkstr=".reloc"{dupptr reloc,varptr(pecontent4edit)+lpeek(pefile,pesectiontablechk+12),lpeek(pefile,pesectiontablechk+8),2}
+memcpy pecontent4edit,pefile,lpeek(pefile,pesectiontablechk+8),lpeek(pefile,pesectiontablechk+12),lpeek(pefile,pesectiontablechk+20)
+pesectiontablechk+=0x28
+loop
+
+reloctran pecontent4edit,reloc,baseaddr4chg-pebaseaddr4noreloc
+
+pesectiontablechk=pesectiontable
+repeat wpeek(pefile,peheaderstart+0x06)
+memcpy pesectiontablechkstr,pefile,8,0,pesectiontablechk
+//if pesectiontablechkstr=".reloc"{dupptr reloc,varptr(pecontent4edit)+lpeek(pefile,pesectiontablechk+12),lpeek(pefile,pesectiontablechk+8),2}
+memcpy pefile,pecontent4edit,lpeek(pefile,pesectiontablechk+8),lpeek(pefile,pesectiontablechk+20),lpeek(pefile,pesectiontablechk+12)
+pesectiontablechk+=0x28
+loop
+lpoke pefile,peheaderstart+0x34,baseaddr4chg
+mes "Relocated your pe format file!"
+bsave "relocated_"+dircmdline_fn,pefile
+end
