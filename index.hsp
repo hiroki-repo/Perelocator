@@ -82,5 +82,7 @@ pesectiontablechk+=0x28
 loop
 lpoke pefile,peheaderstart+0x34,baseaddr4chg
 mes "Relocated your pe format file!"
-bsave "relocated_"+dircmdline_fn,pefile
+repeat strlen(dircmdline_fn):if strmid(dircmdline_fn,cnt,1)="\\" or strmid(dircmdline_fn,cnt,1)="/"{dircmdline_fn_lastdir=cnt}:loop
+dircmdline_fn_4save=strmid(dircmdline_fn,0,dircmdline_fn_lastdir+1)+"relocated_"+strmid(dircmdline_fn,dircmdline_fn_lastdir+1,strlen(dircmdline_fn))
+bsave dircmdline_fn_4save,pefile
 end 0
